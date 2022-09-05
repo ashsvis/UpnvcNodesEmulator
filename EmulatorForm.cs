@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.ComponentModel;
-using System.IO;
-//using System.IO.Ports;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Windows.Forms;
+using System.Xml.Linq;
 
 namespace UpnvcNodesEmulator
 {
@@ -70,9 +68,9 @@ namespace UpnvcNodesEmulator
                                     while ((count = stream.Read(bytes, 0, bytes.Length)) != 0)
                                     {
                                         Thread.Sleep(1);
-                                        var list = new List<string>();
-                                        for (var i = 0; i < count; i++) list.Add(String.Format("{0}", bytes[i]));
-                                        Say = "Q:" + String.Join(",", list);
+                                        //var list = new List<string>();
+                                        //for (var i = 0; i < count; i++) list.Add(String.Format("{0}", bytes[i]));
+                                        //Say = "Q:" + String.Join(",", list);
 
                                         if (count < 6) continue;
                                         var header1 = Convert.ToUInt16(bytes[0] * 256 + bytes[1]);
@@ -83,13 +81,17 @@ namespace UpnvcNodesEmulator
                                         var funcCode = bytes[7];
                                         var startAddr = Convert.ToUInt16(bytes[8] * 256 + bytes[9]);
                                         var regCount = Convert.ToUInt16(bytes[10] * 256 + bytes[11]);
-                                        EnsureNode(nodeAddr);
                                         var nodeName = String.Format("Node{0}", nodeAddr);
-                                        ModbusItem modbusitem;
-                                        while (!DictModbusItems.TryGetValue(nodeName, out modbusitem)) Thread.Sleep(10);
+                                        if (!DictModbusItems.TryGetValue(nodeName, out ModbusItem modbusitem))
+                                        {
+                                            modbusitem = new UpnvcNode() { Key = nodeName };
+                                            DictModbusItems.TryAdd(nodeName, modbusitem);
+                                        }
                                         var modbusNode = (UpnvcNode)modbusitem;
+                                        modbusNode.CalcState();
                                         var nodeMute = !modbusNode.Active;
                                         List<byte> answer;
+                                        byte[] msg;
                                         switch (funcCode)
                                         {
                                             case 3: // - read holding registers
@@ -105,22 +107,24 @@ namespace UpnvcNodesEmulator
                                                 answer.Add(bytesCount);
                                                 for (var addr = 0; addr < regCount; addr++)
                                                 {
-                                                    EnsureModbusHr(nodeAddr, startAddr + addr);
+                                                    //EnsureModbusHr(nodeAddr, startAddr + addr);
                                                     var value = modbusNode[startAddr + addr];
                                                     answer.AddRange(BitConverter.GetBytes(Swap(value)));
                                                 }
-                                                lock (Mutelock)
-                                                {
-                                                    if (!_mute && !nodeMute)
-                                                    {
-                                                        list.Clear();
-                                                        list.AddRange(
-                                                            answer.Select(t => String.Format("{0}", t)));
-                                                        Say = "A:" + String.Join(",", list);
-                                                        var msg = answer.ToArray();
-                                                        stream.Write(msg, 0, msg.Length);
-                                                    }
-                                                }
+                                                msg = answer.ToArray();
+                                                stream.Write(msg, 0, msg.Length);
+                                                //lock (Mutelock)
+                                                //{
+                                                //    if (!_mute && !nodeMute)
+                                                //    {
+                                                //        list.Clear();
+                                                //        list.AddRange(
+                                                //            answer.Select(t => String.Format("{0}", t)));
+                                                //        Say = "A:" + String.Join(",", list);
+                                                //        var msg = answer.ToArray();
+                                                //        stream.Write(msg, 0, msg.Length);
+                                                //    }
+                                                //}
                                                 break;
                                             case 16: // write several registers
                                                 answer = new List<byte>();
@@ -137,28 +141,26 @@ namespace UpnvcNodesEmulator
                                                 for (var i = 0; i < regCount; i++)
                                                 {
                                                     var value = Convert.ToUInt16(bytes[n] * 256 + bytes[n + 1]);
-                                                    EnsureModbusHr(nodeAddr, startAddr + i);
-                                                    modbusNode[startAddr + i] =
-                                                        BitConverter.ToUInt16(BitConverter.GetBytes(value),
-                                                                              0);
-                                                    while (
-                                                        !DictModbusItems.TryUpdate(nodeName, modbusitem,
-                                                                                   modbusitem))
-                                                        Thread.Sleep(10);
+                                                    //EnsureModbusHr(nodeAddr, startAddr + i);
+                                                    modbusNode[startAddr + i] = BitConverter.ToUInt16(BitConverter.GetBytes(value), 0);
+                                                    if (DictModbusItems.TryGetValue(nodeName, out ModbusItem modbusItem))
+                                                        DictModbusItems.TryUpdate(nodeName, modbusNode, modbusitem);
                                                     n = n + 2;
                                                 }
-                                                lock (Mutelock)
-                                                {
-                                                    if (!_mute && !nodeMute)
-                                                    {
-                                                        list.Clear();
-                                                        list.AddRange(
-                                                            answer.Select(t => String.Format("{0}", t)));
-                                                        Say = "A:" + String.Join(",", list);
-                                                        var msg = answer.ToArray();
-                                                        stream.Write(msg, 0, msg.Length);
-                                                    }
-                                                }
+                                                msg = answer.ToArray();
+                                                stream.Write(msg, 0, msg.Length);
+                                                //lock (Mutelock)
+                                                //{
+                                                //    if (!_mute && !nodeMute)
+                                                //    {
+                                                //        list.Clear();
+                                                //        list.AddRange(
+                                                //            answer.Select(t => String.Format("{0}", t)));
+                                                //        Say = "A:" + String.Join(",", list);
+                                                //        var msg = answer.ToArray();
+                                                //        stream.Write(msg, 0, msg.Length);
+                                                //    }
+                                                //}
                                                 break;
                                         }
                                     }
@@ -229,62 +231,71 @@ namespace UpnvcNodesEmulator
         }
 
         private static readonly object Nodelocker = new object();
-        private readonly List<UpnvcNode> _nodes = new List<UpnvcNode>();
+        //private readonly List<UpnvcNode> _nodes = new List<UpnvcNode>();
         
         private void EnsureNode(byte nodeAddr)
         {
-            var method = new MethodInvoker(() =>
-                {
-                    var nodeName = "Node" + nodeAddr;
-                    var nodeText = "Контроллер " + nodeAddr.ToString("D2");
-                    var nodes = tvTree.Nodes.Find(nodeName, false);
-                    if (nodes.Length != 0) return;
-                    var childName = String.Format("Node{0}", nodeAddr);
-                    var unode = new UpnvcNode {Key = childName};
-                    lock (Nodelocker)
-                    {
-                        _nodes.Add(unode);
-                    }
-                    DictModbusItems.TryAdd(childName, unode);
-                    var node = new TreeNode
-                        {
-                            Name = nodeName,
-                            Text = nodeText,
-                            Tag = DictModbusItems
-                        };
-                    tvTree.BeginUpdate();
-                    try
-                    {
-                        tvTree.Nodes.Add(node);
-                        tvTree.Sort();
-                    }
-                    finally
-                    {
-                        tvTree.EndUpdate();
-                    }
-                });
-            if (InvokeRequired)
-                BeginInvoke(method);
-            else
-                method();
+            var childName = string.Format("Node{0}", nodeAddr);
+            var unode = new UpnvcNode { Key = childName };
+            //lock (Nodelocker)
+            //{
+            //    _nodes.Add(unode);
+            //}
+            DictModbusItems.TryAdd(childName, unode);
+            //var method = new MethodInvoker(() =>
+            //    {
+            //        var nodeName = "Node" + nodeAddr;
+            //        //var nodeText = "Контроллер " + nodeAddr.ToString("D2");
+            //        var nodes = tvTree.Nodes.Find(nodeName, false);
+            //        if (nodes.Length != 0) return;
+            //        var childName = String.Format("Node{0}", nodeAddr);
+            //        var unode = new UpnvcNode {Key = childName};
+            //        lock (Nodelocker)
+            //        {
+            //            _nodes.Add(unode);
+            //        }
+            //        DictModbusItems.TryAdd(childName, unode);
+            //        //var node = new TreeNode
+            //        //    {
+            //        //        Name = nodeName,
+            //        //        Text = nodeText,
+            //        //        Tag = DictModbusItems
+            //        //    };
+            //        //tvTree.BeginUpdate();
+            //        //try
+            //        //{
+            //        //    tvTree.Nodes.Add(node);
+            //        //    tvTree.Sort();
+            //        //}
+            //        //finally
+            //        //{
+            //        //    tvTree.EndUpdate();
+            //        //}
+            //    });
+            //if (InvokeRequired)
+            //    BeginInvoke(method);
+            //else
+            //    method();
         }
 
         private void EnsureModbusHr(byte nodeAddr, int addr)
         {
             EnsureNode(nodeAddr);
-            var method = new MethodInvoker(() =>
-                {
-                    var nodeName = "Node" + nodeAddr;
-                    var childName = String.Format("Node{0}.HR{1}", nodeAddr, addr);
-                    var nodes = tvTree.Nodes.Find(nodeName, false);
-                    if (nodes.Length == 0) return;
-                    if (nodes[0].Nodes.Find(childName, false).Length > 0) return;
-                    DictModbusItems.TryAdd(childName, new ModbusHoldingRegister { Key = childName });
-                });
-            if (InvokeRequired)
-                BeginInvoke(method);
-            else
-                method();
+            var childName = string.Format("Node{0}.HR{1}", nodeAddr, addr);
+            DictModbusItems.TryAdd(childName, new ModbusHoldingRegister { Key = childName });
+            //var method = new MethodInvoker(() =>
+            //    {
+            //        var nodeName = "Node" + nodeAddr;
+            //        var childName = String.Format("Node{0}.HR{1}", nodeAddr, addr);
+            //        //var nodes = tvTree.Nodes.Find(nodeName, false);
+            //        //if (nodes.Length == 0) return;
+            //        //if (nodes[0].Nodes.Find(childName, false).Length > 0) return;
+            //        DictModbusItems.TryAdd(childName, new ModbusHoldingRegister { Key = childName });
+            //    });
+            //if (InvokeRequired)
+            //    BeginInvoke(method);
+            //else
+            //    method();
         }
 
         private string Say
@@ -345,13 +356,13 @@ namespace UpnvcNodesEmulator
         
         void Timer1Tick(object sender, EventArgs e)
         {
-        	lock (Nodelocker)
-        	{
-        		foreach (var node in _nodes)
-        		{
-        			node.CalcState();
-        		}
-        	}
+        	//lock (Nodelocker)
+        	//{
+        	//	foreach (var node in _nodes)
+        	//	{
+        	//		node.CalcState();
+        	//	}
+        	//}
             
         }
 
