@@ -105,15 +105,66 @@ namespace UpnvcNodesEmulator
                                                 answer.Add(nodeAddr);
                                                 answer.Add(funcCode);
                                                 answer.Add(bytesCount);
-                                                for (var addr = 0; addr < regCount; addr++)
+
+                                                using (var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
                                                 {
-                                                    //EnsureModbusHr(nodeAddr, startAddr + addr);
-                                                    var value = modbusNode[startAddr + addr];
-                                                    answer.AddRange(BitConverter.GetBytes(Swap(value)));
-                                                }
-                                                msg = answer.ToArray();
-                                                stream.Write(msg, 0, msg.Length);
-                                                //lock (Mutelock)
+                                                    try
+                                                    {
+                                                        var remoteEp = new IPEndPoint(IPAddress.Parse("10.9.3.55"), 502);
+                                                        try
+                                                        {
+                                                            sock.Connect(remoteEp);
+                                                            sock.SendTimeout = 3000;
+                                                            sock.Send(bytes);
+                                                            var receivedBytes = new byte[1024];
+                                                            sock.ReceiveTimeout = 3000;
+                                                            var numBytes = sock.Receive(receivedBytes); //считали numBytes байт
+                                                            sock.Disconnect(true);
+                                                            // receivedBytes: [0][1][2][3][4][5] - заголовок: [4]*256+[5]= длина блока
+                                                            // [6] - адрес устройства (как получено);
+                                                            // [7] - код функции; [8] - количество байт ответа Modbus устройства;
+                                                            // [9]..[n] - данные, для функции 3: [8]/2= количество регистров.
+                                                            if ((receivedBytes[4] * 256 + receivedBytes[5] == numBytes - 6) &&
+                                                                receivedBytes[6] == nodeAddr && receivedBytes[7] == funcCode)
+                                                            {
+                                                                var regcount = receivedBytes[8] / 2;
+                                                                var fetchvals = new ushort[regcount];
+                                                                var k = 9;
+                                                                for (var i = 0; i < regcount; i++)
+                                                                {
+                                                                    var raw = new byte[2];
+                                                                    raw[0] = receivedBytes[k + 1];
+                                                                    raw[1] = receivedBytes[k];
+                                                                    var value = BitConverter.ToUInt16(raw, 0);
+                                                                    answer.AddRange(BitConverter.GetBytes(Swap(value)));
+                                                                    k += 2;
+                                                                }
+                                                                msg = answer.ToArray();
+                                                                stream.Write(msg, 0, msg.Length);
+                                                            }
+                                                        }
+                                                        catch (Exception)
+                                                        {
+
+                                                        }
+                                                    }
+                                                    catch (Exception)
+                                                    {
+
+                                                    }
+                                                }    
+
+
+                                                //for (var addr = 0; addr < regCount; addr++)
+                                                //{
+                                                //    //EnsureModbusHr(nodeAddr, startAddr + addr);
+                                                //    var value = modbusNode[startAddr + addr];
+                                                //    answer.AddRange(BitConverter.GetBytes(Swap(value)));
+                                                //}
+                                                //msg = answer.ToArray();
+                                                //stream.Write(msg, 0, msg.Length);
+
+                                                ////lock (Mutelock)
                                                 //{
                                                 //    if (!_mute && !nodeMute)
                                                 //    {
@@ -145,7 +196,7 @@ namespace UpnvcNodesEmulator
                                                     modbusNode[startAddr + i] = BitConverter.ToUInt16(BitConverter.GetBytes(value), 0);
                                                     if (DictModbusItems.TryGetValue(nodeName, out ModbusItem modbusItem))
                                                         DictModbusItems.TryUpdate(nodeName, modbusNode, modbusitem);
-                                                    n = n + 2;
+                                                    n += 2;
                                                 }
                                                 msg = answer.ToArray();
                                                 stream.Write(msg, 0, msg.Length);
