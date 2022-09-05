@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -31,7 +32,7 @@ namespace UpnvcNodesEmulator
 
                 #region работа с TCP портом
 
-                    const int socketTimeOut = 3000;
+                    const int socketTimeOut = 5000;
                     var listener = new TcpListener(IPAddress.Any, 502)
                     {
                         Server = { SendTimeout = socketTimeOut, ReceiveTimeout = socketTimeOut }
@@ -68,10 +69,6 @@ namespace UpnvcNodesEmulator
                                     while ((count = stream.Read(bytes, 0, bytes.Length)) != 0)
                                     {
                                         Thread.Sleep(1);
-                                        //var list = new List<string>();
-                                        //for (var i = 0; i < count; i++) list.Add(String.Format("{0}", bytes[i]));
-                                        //Say = "Q:" + String.Join(",", list);
-
                                         if (count < 6) continue;
                                         var header1 = Convert.ToUInt16(bytes[0] * 256 + bytes[1]);
                                         var header2 = Convert.ToUInt16(bytes[2] * 256 + bytes[3]);
@@ -90,128 +87,14 @@ namespace UpnvcNodesEmulator
                                         var modbusNode = (UpnvcNode)modbusitem;
                                         modbusNode.CalcState();
                                         var nodeMute = !modbusNode.Active;
-                                        List<byte> answer;
-                                        byte[] msg;
                                         switch (funcCode)
                                         {
                                             case 3: // - read holding registers
                                             case 4: // - read input registers
-                                                answer = new List<byte>();
-                                                answer.AddRange(BitConverter.GetBytes(Swap(header1)));
-                                                answer.AddRange(BitConverter.GetBytes(Swap(header2)));
-                                                var bytesCount = Convert.ToByte(regCount * 2);
-                                                packetLen = Convert.ToUInt16(bytesCount + 3); // 
-                                                answer.AddRange(BitConverter.GetBytes(Swap(packetLen)));
-                                                answer.Add(nodeAddr);
-                                                answer.Add(funcCode);
-                                                answer.Add(bytesCount);
-
-                                                using (var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
-                                                {
-                                                    try
-                                                    {
-                                                        var remoteEp = new IPEndPoint(IPAddress.Parse("10.9.3.55"), 502);
-                                                        try
-                                                        {
-                                                            sock.Connect(remoteEp);
-                                                            sock.SendTimeout = 3000;
-                                                            sock.Send(bytes);
-                                                            var receivedBytes = new byte[1024];
-                                                            sock.ReceiveTimeout = 3000;
-                                                            var numBytes = sock.Receive(receivedBytes); //считали numBytes байт
-                                                            sock.Disconnect(true);
-                                                            // receivedBytes: [0][1][2][3][4][5] - заголовок: [4]*256+[5]= длина блока
-                                                            // [6] - адрес устройства (как получено);
-                                                            // [7] - код функции; [8] - количество байт ответа Modbus устройства;
-                                                            // [9]..[n] - данные, для функции 3: [8]/2= количество регистров.
-                                                            if ((receivedBytes[4] * 256 + receivedBytes[5] == numBytes - 6) &&
-                                                                receivedBytes[6] == nodeAddr && receivedBytes[7] == funcCode)
-                                                            {
-                                                                var regcount = receivedBytes[8] / 2;
-                                                                var fetchvals = new ushort[regcount];
-                                                                var k = 9;
-                                                                for (var i = 0; i < regcount; i++)
-                                                                {
-                                                                    var raw = new byte[2];
-                                                                    raw[0] = receivedBytes[k + 1];
-                                                                    raw[1] = receivedBytes[k];
-                                                                    var value = BitConverter.ToUInt16(raw, 0);
-                                                                    answer.AddRange(BitConverter.GetBytes(Swap(value)));
-                                                                    k += 2;
-                                                                }
-                                                                msg = answer.ToArray();
-                                                                stream.Write(msg, 0, msg.Length);
-                                                            }
-                                                        }
-                                                        catch (Exception)
-                                                        {
-
-                                                        }
-                                                    }
-                                                    catch (Exception)
-                                                    {
-
-                                                    }
-                                                }    
-
-
-                                                //for (var addr = 0; addr < regCount; addr++)
-                                                //{
-                                                //    //EnsureModbusHr(nodeAddr, startAddr + addr);
-                                                //    var value = modbusNode[startAddr + addr];
-                                                //    answer.AddRange(BitConverter.GetBytes(Swap(value)));
-                                                //}
-                                                //msg = answer.ToArray();
-                                                //stream.Write(msg, 0, msg.Length);
-
-                                                ////lock (Mutelock)
-                                                //{
-                                                //    if (!_mute && !nodeMute)
-                                                //    {
-                                                //        list.Clear();
-                                                //        list.AddRange(
-                                                //            answer.Select(t => String.Format("{0}", t)));
-                                                //        Say = "A:" + String.Join(",", list);
-                                                //        var msg = answer.ToArray();
-                                                //        stream.Write(msg, 0, msg.Length);
-                                                //    }
-                                                //}
+                                                Exchange(stream, bytes, nodeAddr, funcCode);
                                                 break;
                                             case 16: // write several registers
-                                                answer = new List<byte>();
-                                                answer.AddRange(BitConverter.GetBytes(Swap(header1)));
-                                                answer.AddRange(BitConverter.GetBytes(Swap(header2)));
-                                                answer.AddRange(BitConverter.GetBytes(Swap(6)));
-                                                answer.Add(nodeAddr);
-                                                answer.Add(funcCode);
-                                                answer.AddRange(BitConverter.GetBytes(Swap(startAddr)));
-                                                answer.AddRange(BitConverter.GetBytes(Swap(regCount)));
-                                                var bytesToWrite = bytes[12];
-                                                if (bytesToWrite != regCount * 2) break;
-                                                var n = 13;
-                                                for (var i = 0; i < regCount; i++)
-                                                {
-                                                    var value = Convert.ToUInt16(bytes[n] * 256 + bytes[n + 1]);
-                                                    //EnsureModbusHr(nodeAddr, startAddr + i);
-                                                    modbusNode[startAddr + i] = BitConverter.ToUInt16(BitConverter.GetBytes(value), 0);
-                                                    if (DictModbusItems.TryGetValue(nodeName, out ModbusItem modbusItem))
-                                                        DictModbusItems.TryUpdate(nodeName, modbusNode, modbusitem);
-                                                    n += 2;
-                                                }
-                                                msg = answer.ToArray();
-                                                stream.Write(msg, 0, msg.Length);
-                                                //lock (Mutelock)
-                                                //{
-                                                //    if (!_mute && !nodeMute)
-                                                //    {
-                                                //        list.Clear();
-                                                //        list.AddRange(
-                                                //            answer.Select(t => String.Format("{0}", t)));
-                                                //        Say = "A:" + String.Join(",", list);
-                                                //        var msg = answer.ToArray();
-                                                //        stream.Write(msg, 0, msg.Length);
-                                                //    }
-                                                //}
+                                                Exchange(stream, bytes, nodeAddr, funcCode);
                                                 break;
                                         }
                                     }
@@ -238,6 +121,42 @@ namespace UpnvcNodesEmulator
                 #endregion работа с TCP портом
 
             };
+        }
+
+        private void Exchange(NetworkStream stream, byte[] bytes, byte nodeAddr, byte funcCode)
+        {
+            using (var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            {
+                try
+                {
+                    var remoteEp = new IPEndPoint(IPAddress.Parse("10.9.3.55"), 502);
+                    try
+                    {
+                        sock.Connect(remoteEp);
+                        sock.SendTimeout = 3000;
+                        sock.Send(bytes);
+                        var receivedBytes = new byte[1024];
+                        sock.ReceiveTimeout = 3000;
+                        var numBytes = sock.Receive(receivedBytes); //считали numBytes байт
+                        sock.Disconnect(true);
+                        if ((receivedBytes[4] * 256 + receivedBytes[5] == numBytes - 6) &&
+                            receivedBytes[6] == nodeAddr && receivedBytes[7] == funcCode)
+                        {
+                            var msg = new byte[numBytes];
+                            Array.Copy(receivedBytes, msg, numBytes);
+                            stream.Write(msg, 0, msg.Length);
+                        }
+                     }
+                    catch (Exception)
+                    {
+
+                    }
+                }
+                catch (Exception)
+                {
+
+                }
+            }
         }
 
         private void EmulatorForm_Load(object sender, EventArgs e)
