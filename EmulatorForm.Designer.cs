@@ -28,16 +28,12 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.tvTree = new System.Windows.Forms.TreeView();
             this.pgProps = new System.Windows.Forms.PropertyGrid();
             this.lbMessages = new System.Windows.Forms.ListBox();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.cbMute = new System.Windows.Forms.CheckBox();
-            this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.tableLayoutPanel1.SuspendLayout();
-            this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
             // tableLayoutPanel1
@@ -67,8 +63,6 @@
             this.tvTree.Name = "tvTree";
             this.tvTree.Size = new System.Drawing.Size(236, 324);
             this.tvTree.TabIndex = 2;
-            this.tvTree.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.tvTree_AfterSelect);
-            this.tvTree.MouseDown += new System.Windows.Forms.MouseEventHandler(this.tvTree_MouseDown);
             // 
             // pgProps
             // 
@@ -78,7 +72,6 @@
             this.pgProps.Name = "pgProps";
             this.pgProps.Size = new System.Drawing.Size(428, 324);
             this.pgProps.TabIndex = 3;
-            this.pgProps.PropertyValueChanged += new System.Windows.Forms.PropertyValueChangedEventHandler(this.pgProps_PropertyValueChanged);
             // 
             // lbMessages
             // 
@@ -97,32 +90,12 @@
             // 
             this.panel1.AutoSize = true;
             this.tableLayoutPanel1.SetColumnSpan(this.panel1, 2);
-            this.panel1.Controls.Add(this.cbMute);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel1.Location = new System.Drawing.Point(2, 332);
             this.panel1.Margin = new System.Windows.Forms.Padding(2);
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(672, 26);
             this.panel1.TabIndex = 4;
-            // 
-            // cbMute
-            // 
-            this.cbMute.AutoSize = true;
-            this.cbMute.Dock = System.Windows.Forms.DockStyle.Left;
-            this.cbMute.Location = new System.Drawing.Point(0, 0);
-            this.cbMute.Name = "cbMute";
-            this.cbMute.Padding = new System.Windows.Forms.Padding(5, 0, 0, 0);
-            this.cbMute.Size = new System.Drawing.Size(103, 26);
-            this.cbMute.TabIndex = 6;
-            this.cbMute.Text = "не отвечать";
-            this.cbMute.UseVisualStyleBackColor = true;
-            this.cbMute.CheckedChanged += new System.EventHandler(this.cbMute_CheckedChanged);
-            // 
-            // timer1
-            // 
-            this.timer1.Enabled = true;
-            this.timer1.Interval = 1667;
-            this.timer1.Tick += new System.EventHandler(this.Timer1Tick);
             // 
             // EmulatorForm
             // 
@@ -139,12 +112,9 @@
             this.Load += new System.EventHandler(this.EmulatorForm_Load);
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
-            this.panel1.ResumeLayout(false);
-            this.panel1.PerformLayout();
             this.ResumeLayout(false);
 
         }
-        private System.Windows.Forms.Timer timer1;
 
         #endregion
 
@@ -153,7 +123,6 @@
         private System.Windows.Forms.PropertyGrid pgProps;
         private System.Windows.Forms.ListBox lbMessages;
         private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.CheckBox cbMute;
     }
 }
 

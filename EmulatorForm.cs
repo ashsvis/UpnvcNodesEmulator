@@ -2,25 +2,20 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Windows.Forms;
-using System.Xml.Linq;
 
 namespace UpnvcNodesEmulator
 {
     public partial class EmulatorForm : Form
     {
+        const int socketTimeOut = 3000;
         private readonly BackgroundWorker _worker;
 
         private static readonly ConcurrentDictionary<string, ModbusItem> DictModbusItems =
             new ConcurrentDictionary<string, ModbusItem>();
-
-        private static readonly object Mutelock = new object();
-        private static bool _mute;
 
         public EmulatorForm()
         {
@@ -32,12 +27,11 @@ namespace UpnvcNodesEmulator
 
                 #region работа с TCP портом
 
-                    const int socketTimeOut = 5000;
                     var listener = new TcpListener(IPAddress.Any, 502)
                     {
                         Server = { SendTimeout = socketTimeOut, ReceiveTimeout = socketTimeOut }
                     };
-                    Say = String.Format("Сокет TCP({0}) прослушивается...", 502);
+                    Say = string.Format("Сокет TCP({0}) прослушивается...", 502);
                     do
                     {
                         Thread.Sleep(1);
@@ -45,7 +39,7 @@ namespace UpnvcNodesEmulator
                         {
                             listener.Start(10);
                             // Buffer for reading data
-                            var bytes = new Byte[256];
+                            var bytes = new byte[256];
 
                             while (!listener.Pending())
                             {
@@ -53,7 +47,7 @@ namespace UpnvcNodesEmulator
                                 if (!worker.CancellationPending) continue;
                                 listener.Stop();
                                 args.Cancel = true;
-                                Say = String.Format("Сокет TCP({0}) - остановка прослушивания.", 502);
+                                Say = string.Format("Сокет TCP({0}) - остановка прослушивания.", 502);
                                 return;
                             }
                             var clientData = listener.AcceptTcpClient();
@@ -68,42 +62,14 @@ namespace UpnvcNodesEmulator
                                     // Loop to receive all the data sent by the client.
                                     while ((count = stream.Read(bytes, 0, bytes.Length)) != 0)
                                     {
+                                        Exchange(stream, bytes);
                                         Thread.Sleep(1);
-                                        if (count < 6) continue;
-                                        var header1 = Convert.ToUInt16(bytes[0] * 256 + bytes[1]);
-                                        var header2 = Convert.ToUInt16(bytes[2] * 256 + bytes[3]);
-                                        var packetLen = Convert.ToUInt16(bytes[4] * 256 + bytes[5]);
-                                        if (count != packetLen + 6) continue;
-                                        var nodeAddr = bytes[6];
-                                        var funcCode = bytes[7];
-                                        var startAddr = Convert.ToUInt16(bytes[8] * 256 + bytes[9]);
-                                        var regCount = Convert.ToUInt16(bytes[10] * 256 + bytes[11]);
-                                        var nodeName = String.Format("Node{0}", nodeAddr);
-                                        if (!DictModbusItems.TryGetValue(nodeName, out ModbusItem modbusitem))
-                                        {
-                                            modbusitem = new UpnvcNode() { Key = nodeName };
-                                            DictModbusItems.TryAdd(nodeName, modbusitem);
-                                        }
-                                        var modbusNode = (UpnvcNode)modbusitem;
-                                        modbusNode.CalcState();
-                                        var nodeMute = !modbusNode.Active;
-                                        switch (funcCode)
-                                        {
-                                            case 3: // - read holding registers
-                                            case 4: // - read input registers
-                                                Exchange(stream, bytes, nodeAddr, funcCode);
-                                                break;
-                                            case 16: // write several registers
-                                                Exchange(stream, bytes, nodeAddr, funcCode);
-                                                break;
-                                        }
                                     }
                                     // Shutdown and end connection
                                     clientData.Close();
                                 }
                                 catch (Exception ex)
                                 {
-                                    //throw new Exception(ex.Message);
                                     if (!worker.CancellationPending) Say = "Ошибка: " + ex.Message;
                                 }
                             });
@@ -111,20 +77,23 @@ namespace UpnvcNodesEmulator
                         catch (SocketException exception)
                         {
                             if (!worker.CancellationPending)
-                                Say = String.Format("Ошибка приёма: {0}", exception.Message);
+                                Say = string.Format("Ошибка приёма: {0}", exception.Message);
                             break;
                         }
                     } while (!worker.CancellationPending);
                     listener.Stop();
-                    Say = String.Format("Сокет TCP({0}) - остановка прослушивания.", 502);
+                    Say = string.Format("Сокет TCP({0}) - остановка прослушивания.", 502);
 
                 #endregion работа с TCP портом
 
             };
         }
 
-        private void Exchange(NetworkStream stream, byte[] bytes, byte nodeAddr, byte funcCode)
+        private void Exchange(NetworkStream stream, byte[] bytes)
         {
+            if (bytes.Length < 8) return;
+            var nodeAddr = bytes[6];
+            var funcCode = bytes[7];
             using (var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
                 try
@@ -133,10 +102,10 @@ namespace UpnvcNodesEmulator
                     try
                     {
                         sock.Connect(remoteEp);
-                        sock.SendTimeout = 3000;
+                        sock.SendTimeout = socketTimeOut;
                         sock.Send(bytes);
                         var receivedBytes = new byte[1024];
-                        sock.ReceiveTimeout = 3000;
+                        sock.ReceiveTimeout = socketTimeOut;
                         var numBytes = sock.Receive(receivedBytes); //считали numBytes байт
                         sock.Disconnect(true);
                         if ((receivedBytes[4] * 256 + receivedBytes[5] == numBytes - 6) &&
@@ -192,82 +161,6 @@ namespace UpnvcNodesEmulator
             return result;
         }
 
-        private void cbMute_CheckedChanged(object sender, EventArgs e)
-        {
-            lock (Mutelock)
-            {
-                _mute = cbMute.Checked;
-            }
-        }
-
-        private static readonly object Nodelocker = new object();
-        //private readonly List<UpnvcNode> _nodes = new List<UpnvcNode>();
-        
-        private void EnsureNode(byte nodeAddr)
-        {
-            var childName = string.Format("Node{0}", nodeAddr);
-            var unode = new UpnvcNode { Key = childName };
-            //lock (Nodelocker)
-            //{
-            //    _nodes.Add(unode);
-            //}
-            DictModbusItems.TryAdd(childName, unode);
-            //var method = new MethodInvoker(() =>
-            //    {
-            //        var nodeName = "Node" + nodeAddr;
-            //        //var nodeText = "Контроллер " + nodeAddr.ToString("D2");
-            //        var nodes = tvTree.Nodes.Find(nodeName, false);
-            //        if (nodes.Length != 0) return;
-            //        var childName = String.Format("Node{0}", nodeAddr);
-            //        var unode = new UpnvcNode {Key = childName};
-            //        lock (Nodelocker)
-            //        {
-            //            _nodes.Add(unode);
-            //        }
-            //        DictModbusItems.TryAdd(childName, unode);
-            //        //var node = new TreeNode
-            //        //    {
-            //        //        Name = nodeName,
-            //        //        Text = nodeText,
-            //        //        Tag = DictModbusItems
-            //        //    };
-            //        //tvTree.BeginUpdate();
-            //        //try
-            //        //{
-            //        //    tvTree.Nodes.Add(node);
-            //        //    tvTree.Sort();
-            //        //}
-            //        //finally
-            //        //{
-            //        //    tvTree.EndUpdate();
-            //        //}
-            //    });
-            //if (InvokeRequired)
-            //    BeginInvoke(method);
-            //else
-            //    method();
-        }
-
-        private void EnsureModbusHr(byte nodeAddr, int addr)
-        {
-            EnsureNode(nodeAddr);
-            var childName = string.Format("Node{0}.HR{1}", nodeAddr, addr);
-            DictModbusItems.TryAdd(childName, new ModbusHoldingRegister { Key = childName });
-            //var method = new MethodInvoker(() =>
-            //    {
-            //        var nodeName = "Node" + nodeAddr;
-            //        var childName = String.Format("Node{0}.HR{1}", nodeAddr, addr);
-            //        //var nodes = tvTree.Nodes.Find(nodeName, false);
-            //        //if (nodes.Length == 0) return;
-            //        //if (nodes[0].Nodes.Find(childName, false).Length > 0) return;
-            //        DictModbusItems.TryAdd(childName, new ModbusHoldingRegister { Key = childName });
-            //    });
-            //if (InvokeRequired)
-            //    BeginInvoke(method);
-            //else
-            //    method();
-        }
-
         private string Say
         {
             set
@@ -294,46 +187,9 @@ namespace UpnvcNodesEmulator
             }
         }
 
-        private void tvTree_AfterSelect(object sender, TreeViewEventArgs e)
-        {
-            if (e.Node.Tag == DictModbusItems)
-            {
-                ModbusItem fablitem;
-                if (DictModbusItems.TryGetValue(e.Node.Name, out fablitem))
-                    pgProps.SelectedObject = fablitem;
-            }
-            else
-                pgProps.SelectedObject = null;
-        }
-
-        private void pgProps_PropertyValueChanged(object s, PropertyValueChangedEventArgs e)
-        {
-            pgProps.Refresh();
-        }
-
-        private void tvTree_MouseDown(object sender, MouseEventArgs e)
-        {
-            var node = tvTree.GetNodeAt(e.Location);
-            tvTree.SelectedNode = node;
-            if (node == null)
-                pgProps.SelectedObject = null;
-        }
-
         private void EmulatorForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             _worker.CancelAsync();
-        }
-        
-        void Timer1Tick(object sender, EventArgs e)
-        {
-        	//lock (Nodelocker)
-        	//{
-        	//	foreach (var node in _nodes)
-        	//	{
-        	//		node.CalcState();
-        	//	}
-        	//}
-            
         }
 
     }
