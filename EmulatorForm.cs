@@ -111,8 +111,6 @@ namespace UpnvcNodesEmulator
                         // [8][9] - начальный адрес регистров Modbus устройства;
                         // [10][11] - количество регистров.
                         var startAddr = Swap(BitConverter.ToUInt16(msg, 8));
-                        var regCount = Swap(BitConverter.ToUInt16(msg, 10));
-                        Say = $"StartAddress: {startAddr}, count: {regCount}";
                         sock.Send(msg);
                         var receivedBytes = new byte[1024];
                         sock.ReceiveTimeout = socketTimeOut;
@@ -139,10 +137,12 @@ namespace UpnvcNodesEmulator
                                         var n = 9;
                                         for (var i = 0; i < regcount; i++)
                                         {
-                                            var raw = new byte[2];
-                                            raw[0] = receivedBytes[n + 1];
-                                            raw[1] = receivedBytes[n];
-                                            fetchvals[i] = BitConverter.ToUInt16(raw, 0);
+                                            //var raw = new byte[2];
+                                            //raw[0] = receivedBytes[n + 1];
+                                            //raw[1] = receivedBytes[n];
+                                            //var value = BitConverter.ToUInt16(raw, 0);
+                                            var value = Swap(BitConverter.ToUInt16(receivedBytes, n));
+                                            Say = $"[{nodeAddr}] {startAddr + i}={value}";
                                             n += 2;
                                         }
 
