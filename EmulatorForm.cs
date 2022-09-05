@@ -62,7 +62,7 @@ namespace UpnvcNodesEmulator
                                     // Loop to receive all the data sent by the client.
                                     while ((count = stream.Read(bytes, 0, bytes.Length)) != 0)
                                     {
-                                        Exchange(stream, bytes);
+                                        Exchange(stream, bytes, count);
                                         Thread.Sleep(1);
                                     }
                                     // Shutdown and end connection
@@ -89,9 +89,9 @@ namespace UpnvcNodesEmulator
             };
         }
 
-        private void Exchange(NetworkStream stream, byte[] bytes)
+        private void Exchange(NetworkStream stream, byte[] bytes, int count)
         {
-            if (bytes.Length < 8) return;
+            if (count < 8) return;
             var nodeAddr = bytes[6];
             var funcCode = bytes[7];
             using (var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
@@ -103,17 +103,56 @@ namespace UpnvcNodesEmulator
                     {
                         sock.Connect(remoteEp);
                         sock.SendTimeout = socketTimeOut;
-                        sock.Send(bytes);
+                        var msg = new byte[count];
+                        Array.Copy(bytes, msg, count);
+                        // msg: [0][1][2][3][4][5] - заголовок: [4]*256+[5]=длина блока
+                        // [6] - адрес устройства;
+                        // [7] - код функции;
+                        // [8][9] - начальный адрес регистров Modbus устройства;
+                        // [10][11] - количество регистров.
+                        var startAddr = Swap(BitConverter.ToUInt16(msg, 8));
+                        var regCount = Swap(BitConverter.ToUInt16(msg, 10));
+                        Say = $"StartAddress: {startAddr}, count: {regCount}";
+                        sock.Send(msg);
                         var receivedBytes = new byte[1024];
                         sock.ReceiveTimeout = socketTimeOut;
                         var numBytes = sock.Receive(receivedBytes); //считали numBytes байт
                         sock.Disconnect(true);
+                        // receivedBytes: [0][1][2][3][4][5] - заголовок: [4]*256+[5]=длина блока
+                        // [6] - адрес устройства (как получено);
+                        // [7] - код функции; [8] - количество байт ответа Modbus устройства;
+                        // [9]..[n] - данные, для функции 3,4: [8]/2= количество регистров.
                         if ((receivedBytes[4] * 256 + receivedBytes[5] == numBytes - 6) &&
                             receivedBytes[6] == nodeAddr && receivedBytes[7] == funcCode)
                         {
-                            var msg = new byte[numBytes];
+                            msg = new byte[numBytes];
                             Array.Copy(receivedBytes, msg, numBytes);
                             stream.Write(msg, 0, msg.Length);
+                            ThreadPool.QueueUserWorkItem(arg =>
+                            {
+                                try
+                                {
+                                    if (funcCode == 3 || funcCode == 4)
+                                    {
+                                        var regcount = receivedBytes[8] / 2;
+                                        var fetchvals = new ushort[regcount];
+                                        var n = 9;
+                                        for (var i = 0; i < regcount; i++)
+                                        {
+                                            var raw = new byte[2];
+                                            raw[0] = receivedBytes[n + 1];
+                                            raw[1] = receivedBytes[n];
+                                            fetchvals[i] = BitConverter.ToUInt16(raw, 0);
+                                            n += 2;
+                                        }
+
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Say = ex.Message;
+                                }
+                            });
                         }
                      }
                     catch (Exception)
@@ -165,7 +204,7 @@ namespace UpnvcNodesEmulator
         {
             set
             {
-                const int maxlines = 11;
+                const int maxlines = 31;
                 var method = new MethodInvoker(() =>
                     {
                         lbMessages.BeginUpdate();
