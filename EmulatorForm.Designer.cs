@@ -31,24 +31,13 @@
             this.components = new System.ComponentModel.Container();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.tvTree = new System.Windows.Forms.TreeView();
-            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.tsmiClear = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiLoad = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiSave = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiDeleteSplitter = new System.Windows.Forms.ToolStripSeparator();
-            this.tsmiDelete = new System.Windows.Forms.ToolStripMenuItem();
             this.pgProps = new System.Windows.Forms.PropertyGrid();
             this.lbMessages = new System.Windows.Forms.ListBox();
             this.panel1 = new System.Windows.Forms.Panel();
             this.cbMute = new System.Windows.Forms.CheckBox();
-            this.nudPort = new System.Windows.Forms.NumericUpDown();
-            this.cbPort = new System.Windows.Forms.ComboBox();
-            this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.tableLayoutPanel1.SuspendLayout();
-            this.contextMenuStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudPort)).BeginInit();
             this.SuspendLayout();
             // 
             // tableLayoutPanel1
@@ -72,7 +61,6 @@
             // 
             // tvTree
             // 
-            this.tvTree.ContextMenuStrip = this.contextMenuStrip1;
             this.tvTree.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tvTree.HideSelection = false;
             this.tvTree.Location = new System.Drawing.Point(3, 3);
@@ -81,55 +69,6 @@
             this.tvTree.TabIndex = 2;
             this.tvTree.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.tvTree_AfterSelect);
             this.tvTree.MouseDown += new System.Windows.Forms.MouseEventHandler(this.tvTree_MouseDown);
-            // 
-            // contextMenuStrip1
-            // 
-            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsmiClear,
-            this.tsmiLoad,
-            this.tsmiSave,
-            this.tsmiDeleteSplitter,
-            this.tsmiDelete});
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(138, 98);
-            this.contextMenuStrip1.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
-            // 
-            // tsmiClear
-            // 
-            this.tsmiClear.Name = "tsmiClear";
-            this.tsmiClear.Size = new System.Drawing.Size(137, 22);
-            this.tsmiClear.Text = "Очистить";
-            this.tsmiClear.Click += new System.EventHandler(this.tsmiClear_Click);
-            // 
-            // tsmiLoad
-            // 
-            this.tsmiLoad.Name = "tsmiLoad";
-            this.tsmiLoad.Size = new System.Drawing.Size(137, 22);
-            this.tsmiLoad.Text = "Загрузить...";
-            this.tsmiLoad.Visible = false;
-            this.tsmiLoad.Click += new System.EventHandler(this.tsmiLoad_Click);
-            // 
-            // tsmiSave
-            // 
-            this.tsmiSave.Name = "tsmiSave";
-            this.tsmiSave.Size = new System.Drawing.Size(137, 22);
-            this.tsmiSave.Text = "Сохранить";
-            this.tsmiSave.Visible = false;
-            this.tsmiSave.Click += new System.EventHandler(this.tsmiSave_Click);
-            // 
-            // tsmiDeleteSplitter
-            // 
-            this.tsmiDeleteSplitter.Name = "tsmiDeleteSplitter";
-            this.tsmiDeleteSplitter.Size = new System.Drawing.Size(134, 6);
-            this.tsmiDeleteSplitter.Visible = false;
-            // 
-            // tsmiDelete
-            // 
-            this.tsmiDelete.Name = "tsmiDelete";
-            this.tsmiDelete.Size = new System.Drawing.Size(137, 22);
-            this.tsmiDelete.Text = "Удалить";
-            this.tsmiDelete.Visible = false;
-            this.tsmiDelete.Click += new System.EventHandler(this.tsmiDelete_Click);
             // 
             // pgProps
             // 
@@ -159,8 +98,6 @@
             this.panel1.AutoSize = true;
             this.tableLayoutPanel1.SetColumnSpan(this.panel1, 2);
             this.panel1.Controls.Add(this.cbMute);
-            this.panel1.Controls.Add(this.nudPort);
-            this.panel1.Controls.Add(this.cbPort);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel1.Location = new System.Drawing.Point(2, 332);
             this.panel1.Margin = new System.Windows.Forms.Padding(2);
@@ -172,7 +109,7 @@
             // 
             this.cbMute.AutoSize = true;
             this.cbMute.Dock = System.Windows.Forms.DockStyle.Left;
-            this.cbMute.Location = new System.Drawing.Point(134, 0);
+            this.cbMute.Location = new System.Drawing.Point(0, 0);
             this.cbMute.Name = "cbMute";
             this.cbMute.Padding = new System.Windows.Forms.Padding(5, 0, 0, 0);
             this.cbMute.Size = new System.Drawing.Size(103, 26);
@@ -180,44 +117,6 @@
             this.cbMute.Text = "не отвечать";
             this.cbMute.UseVisualStyleBackColor = true;
             this.cbMute.CheckedChanged += new System.EventHandler(this.cbMute_CheckedChanged);
-            // 
-            // nudPort
-            // 
-            this.nudPort.Dock = System.Windows.Forms.DockStyle.Left;
-            this.nudPort.Location = new System.Drawing.Point(79, 0);
-            this.nudPort.Maximum = new decimal(new int[] {
-            9999,
-            0,
-            0,
-            0});
-            this.nudPort.Name = "nudPort";
-            this.nudPort.Size = new System.Drawing.Size(55, 25);
-            this.nudPort.TabIndex = 5;
-            this.nudPort.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.nudPort.Value = new decimal(new int[] {
-            502,
-            0,
-            0,
-            0});
-            this.nudPort.ValueChanged += new System.EventHandler(this.nudPort_ValueChanged);
-            // 
-            // cbPort
-            // 
-            this.cbPort.Dock = System.Windows.Forms.DockStyle.Left;
-            this.cbPort.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cbPort.FormattingEnabled = true;
-            this.cbPort.Location = new System.Drawing.Point(0, 0);
-            this.cbPort.Name = "cbPort";
-            this.cbPort.Size = new System.Drawing.Size(79, 25);
-            this.cbPort.TabIndex = 3;
-            this.cbPort.SelectionChangeCommitted += new System.EventHandler(this.cbPort_SelectionChangeCommitted);
-            // 
-            // openFileDialog1
-            // 
-            this.openFileDialog1.DefaultExt = "tree";
-            this.openFileDialog1.FileName = "openFileDialog1";
-            this.openFileDialog1.Filter = "*.tree|*.tree";
-            this.openFileDialog1.InitialDirectory = ".\\";
             // 
             // timer1
             // 
@@ -240,10 +139,8 @@
             this.Load += new System.EventHandler(this.EmulatorForm_Load);
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel1.PerformLayout();
-            this.contextMenuStrip1.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudPort)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -257,15 +154,6 @@
         private System.Windows.Forms.ListBox lbMessages;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.CheckBox cbMute;
-        private System.Windows.Forms.NumericUpDown nudPort;
-        private System.Windows.Forms.ComboBox cbPort;
-        private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
-        private System.Windows.Forms.ToolStripMenuItem tsmiClear;
-        private System.Windows.Forms.ToolStripMenuItem tsmiLoad;
-        private System.Windows.Forms.ToolStripMenuItem tsmiSave;
-        private System.Windows.Forms.ToolStripSeparator tsmiDeleteSplitter;
-        private System.Windows.Forms.ToolStripMenuItem tsmiDelete;
-        private System.Windows.Forms.OpenFileDialog openFileDialog1;
     }
 }
 
