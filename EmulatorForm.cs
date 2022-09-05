@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
-using System.IO.Ports;
+//using System.IO.Ports;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -31,103 +31,31 @@ namespace UpnvcNodesEmulator
 
         private void EmulatorForm_Load(object sender, EventArgs e)
         {
-            var ports = new List<string>(SerialPort.GetPortNames());
-            ports.Sort();
-            cbPort.Items.AddRange(new List<object>(ports).ToArray());
             cbPort.Items.Add("TCP");
-             cbPort.Text = cbPort.Items[0].ToString();
+            cbPort.Text = cbPort.Items[0].ToString();
             //--------------------
             cbPort.SelectionChangeCommitted -= cbPort_SelectionChangeCommitted;
-            dudBaudRate.SelectedItemChanged -= dudBaudRate_SelectedItemChanged;
             nudPort.ValueChanged -= nudPort_ValueChanged;
             try
             {
                 LoadProperties();
-                dudBaudRate.Visible = cbPort.Text.StartsWith("COM");
-                nudPort.Visible = !dudBaudRate.Visible;
+                nudPort.Visible = true;
             }
             finally
             {
                 cbPort.SelectionChangeCommitted += cbPort_SelectionChangeCommitted;
-                dudBaudRate.SelectedItemChanged += dudBaudRate_SelectedItemChanged;
                 nudPort.ValueChanged += nudPort_ValueChanged;
             }
-            var porttuning = new PortTuning
-                {
-                    PortName = cbPort.Text,
-                    BaudRate = 115200
-                };
-            int br;
-            if (int.TryParse(dudBaudRate.Text, out br))
-                porttuning.BaudRate = br;
-            else
-                dudBaudRate.Text = @"115200";
-            lbPortTuned.Text = String.Format("{0}, {1}", porttuning.PortName, porttuning.BaudRate);
             _worker.DoWork += (o, args) =>
                 {
                     var worker = (BackgroundWorker) o;
-
-                    #region работа с последовательным портом
-
-                    var pt = args.Argument as PortTuning;
-                    if (pt != null)
-                    {
-                        using (var sport = new SerialPort())
-                        {
-                            #region настройка порта
-
-                            try
-                            {
-                                sport.PortName = pt.PortName;
-                                sport.BaudRate = pt.BaudRate;
-                                sport.Parity = pt.Parity;
-                                sport.DataBits = pt.DataBits;
-                                sport.StopBits = pt.StopBits;
-                                sport.Handshake = pt.Handshake;
-                                sport.ReadTimeout = pt.ReadTimeout;
-                                sport.WriteTimeout = pt.WriteTimeout;
-                                sport.ReadBufferSize = pt.ReadBufferSize;
-                                sport.WriteBufferSize = pt.WriteBufferSize;
-                                sport.DataReceived += sport_DataReceived;
-                                sport.ErrorReceived += sport_ErrorReceived;
-                            }
-                            catch (Exception ex)
-                            {
-                                Say = "Ошибка настройки порта: " + ex.Message;
-                            }
-
-                            #endregion настройка порта
-
-                            if (new List<string>(SerialPort.GetPortNames()).Contains(pt.PortName))
-                            {
-                                try
-                                {
-                                    sport.Open();
-                                    Say = String.Format("Порт {0} открыт.", pt.PortName);
-                                    var _continue = true;
-                                    while (_continue)
-                                        _continue = !worker.CancellationPending;
-                                    sport.Close();
-                                    Say = String.Format("Порт {0} закрыт.", pt.PortName);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Say = "Ошибка порта: " + ex.Message;
-                                }
-                            }
-                            else
-                                Say = String.Format("Порта {0} не существует.", pt.PortName);
-                        }
-                    }
-
-                    #endregion работа с последовательным портом
 
                     #region работа с TCP портом
 
                     var tt = args.Argument as TcpTuning;
                     if (tt != null)
                     {
-                        const int socketTimeOut = 90000;
+                        const int socketTimeOut = 3000;
                         var listener = new TcpListener(IPAddress.Any, tt.Port)
                             {
                                 Server = {SendTimeout = socketTimeOut, ReceiveTimeout = socketTimeOut}
@@ -318,9 +246,6 @@ namespace UpnvcNodesEmulator
                                     case "PortName":
                                         cbPort.Text = value;
                                         break;
-                                    case "BaudRate":
-                                        dudBaudRate.Text = value;
-                                        break;
                                     case "EthernetPort":
                                         int port;
                                         if (int.TryParse(value, out port))
@@ -340,7 +265,6 @@ namespace UpnvcNodesEmulator
                 {
                     "[Listening]",
                     "PortName=" + cbPort.Text,
-                    "BaudRate=" + dudBaudRate.Text,
                     "EthernetPort=" + Convert.ToInt32(nudPort.Value).ToString("0"),
                     ""
                 };
@@ -351,17 +275,14 @@ namespace UpnvcNodesEmulator
         private void cbPort_SelectionChangeCommitted(object sender, EventArgs e)
         {
             cbPort.SelectionChangeCommitted -= cbPort_SelectionChangeCommitted;
-            dudBaudRate.Visible = cbPort.Text.StartsWith("COM");
-            nudPort.Visible = !dudBaudRate.Visible;
+            nudPort.Visible = true;
             ReopenPort();
             cbPort.SelectionChangeCommitted += cbPort_SelectionChangeCommitted;
         }
 
         private void dudBaudRate_SelectedItemChanged(object sender, EventArgs e)
         {
-            dudBaudRate.SelectedItemChanged -= dudBaudRate_SelectedItemChanged;
             ReopenPort();
-            dudBaudRate.SelectedItemChanged += dudBaudRate_SelectedItemChanged;
         }
 
         private void nudPort_ValueChanged(object sender, EventArgs e)
@@ -369,103 +290,6 @@ namespace UpnvcNodesEmulator
             nudPort.ValueChanged -= nudPort_ValueChanged;
             ReopenPort();
             nudPort.ValueChanged += nudPort_ValueChanged;
-        }
-
-        private void sport_ErrorReceived(object sender, SerialErrorReceivedEventArgs e)
-        {
-            var sp = (SerialPort) sender;
-            switch (e.EventType)
-            {
-                case SerialError.Frame: // Оборудованием обнаружена ошибка кадрирования.
-                    sp.DiscardInBuffer();
-                    break;
-                case SerialError.Overrun: // Переполнение буфера символов.
-                    // Следующий символ потерян.
-                    sp.DiscardInBuffer();
-                    break;
-                case SerialError.RXOver: // Переполнение входного буфера.
-                    //  Во входном буфере нет места, или после символа
-                    // конца файла (EOF) получен еще один символ.
-                    sp.DiscardInBuffer();
-                    break;
-                case SerialError.RXParity: // Оборудованием обнаружена ошибка четности.
-                    sp.DiscardInBuffer();
-                    break;
-                case SerialError.TXFull: // Приложение пытается передать символ, однако
-                    //выходной буфер заполнен.
-                    sp.DiscardOutBuffer();
-                    break;
-            }
-            Say = "Ошибка порта: " + e.EventType;
-        }
-
-        //прием данных порта
-        private void sport_DataReceived(object sender, SerialDataReceivedEventArgs e)
-        {
-            var sport = (SerialPort) sender;
-            var count = sport.BytesToRead;
-            if (count < 8) return;
-            var bytes = new byte[count];
-            if (sport.Read(bytes, 0, count) != count) return;
-            var list = new List<string>();
-            for (var i = 0; i < count; i++) list.Add(String.Format("{0}", bytes[i]));
-            Say = "Q:" + String.Join(",", list);
-            var nodeAddr = bytes[0];
-            var funcCode = bytes[1];
-            var startAddr = Convert.ToUInt16(bytes[2] * 256 + bytes[3]);
-            var regCount = Convert.ToUInt16(bytes[4] * 256 + bytes[5]);
-            var checkSum = Convert.ToUInt16(bytes[6] + bytes[7] * 256); // в КС байты не переставляются
-            if (checkSum != Crc(bytes, count - 2))
-            {
-                Say = "Check summ error";
-                return;
-            }
-            EnsureNode(nodeAddr);
-            var nodeName = String.Format("Node{0}", nodeAddr);
-            ModbusItem modbusitem;
-            while (!DictModbusItems.TryGetValue(nodeName, out modbusitem)) Thread.Sleep(10);
-            var modbusNode = (UpnvcNode)modbusitem;
-            if (modbusNode.Active)
-            {
-                switch (funcCode)
-                {
-                    case 3: // - holding registers
-                    case 4: // - input registers
-                        var answer = new List<byte>();
-                        var bytesCount = Convert.ToByte(regCount*2);
-                        answer.Add(nodeAddr);
-                        answer.Add(funcCode);
-                        answer.Add(bytesCount);
-                        for (var addr = 0; addr < regCount; addr++)
-                        {
-                            EnsureModbusHr(nodeAddr, startAddr + addr);
-                            var childName = String.Format("Node{0}.HR{1}", nodeAddr, startAddr + addr);
-                            //ModbusItem modbusitem;
-                            while (!DictModbusItems.TryGetValue(childName, out modbusitem)) Thread.Sleep(10);
-                            var modbusHr = (ModbusHoldingRegister) modbusitem;
-                            var value = BitConverter.ToUInt16(BitConverter.GetBytes(modbusHr.IntValue), 0);
-                            answer.AddRange(BitConverter.GetBytes(Swap(value)));
-                        }
-                        // добавить контрольную сумму
-                        answer.AddRange(BitConverter.GetBytes(Crc(answer.ToArray(), answer.Count)));
-
-                        lock (Mutelock)
-                        {
-                            if (!_mute)
-                            {
-                                list.Clear();
-                                list.AddRange(answer.Select(t => String.Format("{0}", t)));
-                                Say = "A:" + String.Join(",", list);
-                                var msg = answer.ToArray();
-                                if (sport.IsOpen)
-                                    sport.Write(msg, 0, msg.Length);
-                            }
-                        }
-                        break;
-                }
-            }
-            // очистка буфера при получении всех байтов или мусора
-            if (sport.IsOpen) sport.DiscardInBuffer();
         }
 
         public static ushort Crc(IList<byte> buff, int len)
@@ -543,28 +367,10 @@ namespace UpnvcNodesEmulator
                 {
                     var nodeName = "Node" + nodeAddr;
                     var childName = String.Format("Node{0}.HR{1}", nodeAddr, addr);
-                    //var childText = String.Format("4{0:D4} ({1})", addr + 1, addr.ToString("X2"));
                     var nodes = tvTree.Nodes.Find(nodeName, false);
                     if (nodes.Length == 0) return;
                     if (nodes[0].Nodes.Find(childName, false).Length > 0) return;
                     DictModbusItems.TryAdd(childName, new ModbusHoldingRegister { Key = childName });
-                    //var node = new TreeNode
-                    //    {
-                    //        Name = childName,
-                    //        Text = childText //,
-                    //        //Tag = DictModbusItems
-                    //    };
-                    //tvTree.BeginUpdate();
-                    //try
-                    //{
-                    //    nodes[0].Nodes.Add(node);
-                    //    tvTree.Sort();
-                    //}
-                    //finally
-                    //{
-                    //    tvTree.EndUpdate();
-                    //}
-                   // pgProps.Refresh();                   
                 });
             if (InvokeRequired)
                 BeginInvoke(method);
@@ -603,48 +409,27 @@ namespace UpnvcNodesEmulator
             _worker.CancelAsync();
             while (_worker.IsBusy) Application.DoEvents();
             var portName = cbPort.Text;
-            if (new List<string>(SerialPort.GetPortNames()).Contains(portName))
+            switch (portName)
             {
-                var porttuning = new PortTuning
+                case "TCP":
                     {
-                        PortName = portName,
-                        BaudRate = 115200
-                    };
-                int br;
-                if (int.TryParse(dudBaudRate.Text, out br))
-                    porttuning.BaudRate = br;
-                else
-                    dudBaudRate.Text = @"115200";
-                lbPortTuned.Text = String.Format("{0}, {1}",
-                                                 porttuning.PortName, porttuning.BaudRate);
-                _worker.RunWorkerAsync(porttuning);
+                        var tcptuning = new TcpTuning
+                            {
+                                Port = Convert.ToInt32(nudPort.Value)
+                            };
+                        _worker.RunWorkerAsync(tcptuning);
+                    }
+                    break;
+                case "UDP":
+                    {
+                        var udptuning = new UdpTuning
+                            {
+                                Port = Convert.ToInt32(nudPort.Value)
+                            };
+                        _worker.RunWorkerAsync(udptuning);
+                    }
+                    break;
             }
-            else
-                switch (portName)
-                {
-                    case "TCP":
-                        {
-                            var tcptuning = new TcpTuning
-                                {
-                                    Port = Convert.ToInt32(nudPort.Value)
-                                };
-                            lbPortTuned.Text = String.Format("TCP, порт: {0}",
-                                                             tcptuning.Port);
-                            _worker.RunWorkerAsync(tcptuning);
-                        }
-                        break;
-                    case "UDP":
-                        {
-                            var udptuning = new UdpTuning
-                                {
-                                    Port = Convert.ToInt32(nudPort.Value)
-                                };
-                            lbPortTuned.Text = String.Format("UDP, порт: {0}",
-                                                             udptuning.Port);
-                            _worker.RunWorkerAsync(udptuning);
-                        }
-                        break;
-                }
         }
 
         private void tvTree_AfterSelect(object sender, TreeViewEventArgs e)
@@ -717,7 +502,6 @@ namespace UpnvcNodesEmulator
                                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) ==
                 DialogResult.Yes)
             {
-                //DictFablItems.Clear();
                 tvTree.Nodes.Clear();
                 Say = "Текущие накопленные данные удалены.";
             }
@@ -735,7 +519,6 @@ namespace UpnvcNodesEmulator
                     if (node.StartsWith("Node") &&
                         byte.TryParse(node.Substring(4), out inode))
                     {
-                        //EnsureNode(inode);
                         switch (names.Length)
                         {
                             case 3:
@@ -745,19 +528,16 @@ namespace UpnvcNodesEmulator
                                     if (alg.StartsWith("Alg") &&
                                         ushort.TryParse(alg.Substring(3), out ialg))
                                     {
-                                        //EnsureAlgo(inode, ialg);
                                         var name = names[2];
                                         byte ipar, iout;
                                         if (name.StartsWith("Par") &&
                                             byte.TryParse(name.Substring(3), out ipar))
                                         {
-                                            //EnsureAlgoParam(inode, ialg, ipar);
                                             coll.Add("Key", String.Format("Node{0}.Alg{1}.Par{2}", inode, ialg, ipar));
                                         }
                                         else if (name.StartsWith("Out") &&
                                                  byte.TryParse(name.Substring(3), out iout))
                                         {
-                                            //EnsureAlgoOut(inode, ialg, iout);
                                             coll.Add("Key", String.Format("Node{0}.Alg{1}.Out{2}", inode, ialg, iout));
                                         }
                                     }
@@ -771,28 +551,24 @@ namespace UpnvcNodesEmulator
                                 if (kontur.StartsWith("Kontur") &&
                                     byte.TryParse(kontur.Substring(6), out ikontur))
                                 {
-                                    //EnsureKontur(inode, ikontur);
                                     coll.Add("Key", String.Format("Node{0}.Kontur{1}", inode, ikontur));
                                     break;
                                 }
                                 if (sinr.StartsWith("INR") &&
                                     byte.TryParse(sinr.Substring(3), out inr))
                                 {
-                                    //EnsureInr(inode, inr);
                                     coll.Add("Key", String.Format("Node{0}.INR{1}", inode, inr));
                                     break;
                                 }
                                 if (sinr.StartsWith("KD") &&
                                     byte.TryParse(sinr.Substring(2), out inr))
                                 {
-                                    //EnsureKd(inode, inr);
                                     coll.Add("Key", String.Format("Node{0}.KD{1}", inode, inr));
                                     break;
                                 }
                                 Say = names[1];
                                 break;
                             case 1:
-                                //EnsureNode(inode);
                                 coll.Add("Key", String.Format("Node{0}", inode));
                                 break;
                         }
@@ -806,9 +582,6 @@ namespace UpnvcNodesEmulator
                 else if (coll.Count > 1)
                 {
                     var key = coll["Key"] ?? "";
-                    //FablItem fablitem;
-                    //if (DictFablItems.TryGetValue(key, out fablitem))
-                    //    fablitem.LoadProperties(coll);
                 }
             }
             Say = "Ранее накопленный данные загружены.";
@@ -823,17 +596,6 @@ namespace UpnvcNodesEmulator
         {
             var name = filename;
             var lines = new List<string>();
-            //foreach (var key in DictFablItems.Keys)
-            //{
-            //    lines.Add(String.Format("[{0}]", key));
-            //    FablItem fablitem;
-            //    if (!DictFablItems.TryGetValue(key, out fablitem)) continue;
-            //    var coll = new NameValueCollection();
-            //    fablitem.SaveProperties(coll);
-            //    lines.AddRange(coll.AllKeys
-            //                       .Select(key1 => String.Format("{0}={1}", key1, coll[key1])));
-            //    lines.Add("");
-            //}
             File.WriteAllLines(name, lines.ToArray(), System.Text.Encoding.UTF8);
             Say = "Текущие накопленные данные сохранены.";
         }
@@ -848,9 +610,6 @@ namespace UpnvcNodesEmulator
         {
             var node = tvTree.SelectedNode;
             if (node == null) return;
-            //FablItem fablitem;
-            //if (DictFablItems.TryRemove(node.Name, out fablitem))
-            //    tvTree.Nodes.Remove(node);
         }
         
         void Timer1Tick(object sender, EventArgs e)
@@ -865,9 +624,5 @@ namespace UpnvcNodesEmulator
             
         }
 
-        private void btnRefresh_Click(object sender, EventArgs e)
-        {
-            pgProps.Refresh();
-        }
     }
 }

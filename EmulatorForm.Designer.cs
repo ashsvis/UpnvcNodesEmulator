@@ -40,12 +40,9 @@
             this.pgProps = new System.Windows.Forms.PropertyGrid();
             this.lbMessages = new System.Windows.Forms.ListBox();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btnRefresh = new System.Windows.Forms.Button();
             this.cbMute = new System.Windows.Forms.CheckBox();
             this.nudPort = new System.Windows.Forms.NumericUpDown();
-            this.dudBaudRate = new System.Windows.Forms.DomainUpDown();
             this.cbPort = new System.Windows.Forms.ComboBox();
-            this.lbPortTuned = new System.Windows.Forms.Label();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.tableLayoutPanel1.SuspendLayout();
@@ -161,12 +158,9 @@
             // 
             this.panel1.AutoSize = true;
             this.tableLayoutPanel1.SetColumnSpan(this.panel1, 2);
-            this.panel1.Controls.Add(this.btnRefresh);
             this.panel1.Controls.Add(this.cbMute);
             this.panel1.Controls.Add(this.nudPort);
-            this.panel1.Controls.Add(this.dudBaudRate);
             this.panel1.Controls.Add(this.cbPort);
-            this.panel1.Controls.Add(this.lbPortTuned);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panel1.Location = new System.Drawing.Point(2, 332);
             this.panel1.Margin = new System.Windows.Forms.Padding(2);
@@ -174,22 +168,11 @@
             this.panel1.Size = new System.Drawing.Size(672, 26);
             this.panel1.TabIndex = 4;
             // 
-            // btnRefresh
-            // 
-            this.btnRefresh.Location = new System.Drawing.Point(391, 0);
-            this.btnRefresh.Margin = new System.Windows.Forms.Padding(0);
-            this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(95, 27);
-            this.btnRefresh.TabIndex = 7;
-            this.btnRefresh.Text = "Обновить";
-            this.btnRefresh.UseVisualStyleBackColor = true;
-            this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
-            // 
             // cbMute
             // 
             this.cbMute.AutoSize = true;
             this.cbMute.Dock = System.Windows.Forms.DockStyle.Left;
-            this.cbMute.Location = new System.Drawing.Point(202, 0);
+            this.cbMute.Location = new System.Drawing.Point(134, 0);
             this.cbMute.Name = "cbMute";
             this.cbMute.Padding = new System.Windows.Forms.Padding(5, 0, 0, 0);
             this.cbMute.Size = new System.Drawing.Size(103, 26);
@@ -201,7 +184,7 @@
             // nudPort
             // 
             this.nudPort.Dock = System.Windows.Forms.DockStyle.Left;
-            this.nudPort.Location = new System.Drawing.Point(147, 0);
+            this.nudPort.Location = new System.Drawing.Point(79, 0);
             this.nudPort.Maximum = new decimal(new int[] {
             9999,
             0,
@@ -218,28 +201,6 @@
             0});
             this.nudPort.ValueChanged += new System.EventHandler(this.nudPort_ValueChanged);
             // 
-            // dudBaudRate
-            // 
-            this.dudBaudRate.Dock = System.Windows.Forms.DockStyle.Left;
-            this.dudBaudRate.Items.Add("115200");
-            this.dudBaudRate.Items.Add("57600");
-            this.dudBaudRate.Items.Add("38400");
-            this.dudBaudRate.Items.Add("19200");
-            this.dudBaudRate.Items.Add("9600");
-            this.dudBaudRate.Items.Add("4800");
-            this.dudBaudRate.Items.Add("2400");
-            this.dudBaudRate.Items.Add("1200");
-            this.dudBaudRate.Items.Add("600");
-            this.dudBaudRate.Items.Add("300");
-            this.dudBaudRate.Location = new System.Drawing.Point(79, 0);
-            this.dudBaudRate.Name = "dudBaudRate";
-            this.dudBaudRate.ReadOnly = true;
-            this.dudBaudRate.Size = new System.Drawing.Size(68, 25);
-            this.dudBaudRate.TabIndex = 4;
-            this.dudBaudRate.Text = "115200";
-            this.dudBaudRate.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.dudBaudRate.SelectedItemChanged += new System.EventHandler(this.dudBaudRate_SelectedItemChanged);
-            // 
             // cbPort
             // 
             this.cbPort.Dock = System.Windows.Forms.DockStyle.Left;
@@ -250,16 +211,6 @@
             this.cbPort.Size = new System.Drawing.Size(79, 25);
             this.cbPort.TabIndex = 3;
             this.cbPort.SelectionChangeCommitted += new System.EventHandler(this.cbPort_SelectionChangeCommitted);
-            // 
-            // lbPortTuned
-            // 
-            this.lbPortTuned.Dock = System.Windows.Forms.DockStyle.Right;
-            this.lbPortTuned.Location = new System.Drawing.Point(565, 0);
-            this.lbPortTuned.Name = "lbPortTuned";
-            this.lbPortTuned.Size = new System.Drawing.Size(107, 26);
-            this.lbPortTuned.TabIndex = 2;
-            this.lbPortTuned.Text = "COM3, 115200";
-            this.lbPortTuned.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // openFileDialog1
             // 
@@ -307,9 +258,7 @@
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.CheckBox cbMute;
         private System.Windows.Forms.NumericUpDown nudPort;
-        private System.Windows.Forms.DomainUpDown dudBaudRate;
         private System.Windows.Forms.ComboBox cbPort;
-        private System.Windows.Forms.Label lbPortTuned;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem tsmiClear;
         private System.Windows.Forms.ToolStripMenuItem tsmiLoad;
@@ -317,7 +266,6 @@
         private System.Windows.Forms.ToolStripSeparator tsmiDeleteSplitter;
         private System.Windows.Forms.ToolStripMenuItem tsmiDelete;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
-        private System.Windows.Forms.Button btnRefresh;
     }
 }
 
