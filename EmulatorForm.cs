@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -17,18 +18,14 @@ namespace UpnvcNodesEmulator
 
         private static readonly ConcurrentDictionary<string, ushort> DictModbusItems =
             new ConcurrentDictionary<string, ushort>();
-        private static readonly ConcurrentDictionary<int, Tuple<string, string>> Descriptors =
-            new ConcurrentDictionary<int, Tuple<string, string>>();
+
+        private static MemIniFile mif = new MemIniFile("");
 
         public EmulatorForm()
         {
             InitializeComponent();
 
-            var mif = new MemIniFile("");
             mif.FromString(Properties.Resources.Descriptors);
-            var items = mif.ReadSectionKeys("Items");
-            for (var i = 0; i < items.Length; i++)
-                Descriptors.TryAdd(i, new Tuple<string, string>(items[i], mif.ReadString("Items", items[i], "")));
             _worker = new BackgroundWorker {WorkerSupportsCancellation = true};
             _worker.DoWork += (o, args) =>
             {
@@ -135,6 +132,7 @@ namespace UpnvcNodesEmulator
                             var msgReceive = new byte[numBytes];
                             Array.Copy(receivedBytes, msgReceive, numBytes);
                             stream.Write(msgReceive, 0, msgReceive.Length);
+                            var items = mif.ReadSectionKeys("Items");
                             ThreadPool.QueueUserWorkItem(arg =>
                             {
                                 try
@@ -149,20 +147,27 @@ namespace UpnvcNodesEmulator
                                             var value = Swap(BitConverter.ToUInt16(receivedBytes, n));
                                             var addr = startAddr + i;
                                             var key = $"[{nodeAddr}][{addr}]";
-                                            var desc = new Tuple<string, string>("", "");
-                                            Descriptors.TryGetValue(addr, out desc);
+                                            var itemName = items[addr];
                                             if (DictModbusItems.TryGetValue(key, out ushort register))
                                             {
                                                 if (value != register)
                                                 {
                                                     DictModbusItems.TryUpdate(key, value, register);
-                                                    Say = $"[{nodeAddr}] {desc.Item1} {register} -> {value}\t{desc.Item2}";
+                                                    if (mif.KeyExists("Flags", itemName))
+                                                        FlagIndication(nodeAddr, itemName, register, value);
+                                                    else
+                                                        Say = $"[{nodeAddr}] {itemName} {register} -> {value}\t{mif.ReadString("Items",itemName, "")}";
                                                 }
                                             }
                                             else
                                             {
                                                 if (DictModbusItems.TryAdd(key, value))
-                                                    Say = $"[{nodeAddr}] {desc.Item1}    -> {value}\t{desc.Item2}";
+                                                {
+                                                    if (mif.KeyExists("Flags", itemName))
+                                                        FlagIndication(nodeAddr, itemName, value);
+                                                    else
+                                                        Say = $"[{nodeAddr}] {itemName} ? -> {value}\t{mif.ReadString("Items", itemName, "")}";
+                                                }
                                             }
                                             n += 2;
                                         }
@@ -174,15 +179,15 @@ namespace UpnvcNodesEmulator
                                         if (request.StartsWith(answer))
                                         {
                                             var regAddr = Swap(BitConverter.ToUInt16(msgSend, 8));
-                                            var desc = new Tuple<string, string>("", "");
+                                            //var desc = new Tuple<string, string>("", "");
                                             var regCount = Swap(BitConverter.ToUInt16(msgSend, 10));
                                             var n = 13;
                                             for (var i = 0; i < regCount; i++)
                                             {
                                                 var value = Swap(BitConverter.ToUInt16(msgSend, n));
                                                 var addr = regAddr + i;
-                                                Descriptors.TryGetValue(addr, out desc);
-                                                Say = $"[{nodeAddr}] {desc.Item1} <- {value}\t{desc.Item2}";
+                                                var itemName = items[addr];
+                                                Say = $"[{nodeAddr}] {itemName} <- {value}\t{mif.ReadString("Items", itemName, "")}";
                                                 n += 2;
                                             }
                                         }
@@ -203,6 +208,40 @@ namespace UpnvcNodesEmulator
                 catch (Exception)
                 {
 
+                }
+            }
+        }
+
+        private void FlagIndication(byte nodeAddr, string itemName, ushort register, ushort value)
+        {
+            if (mif.SectionExists(itemName))
+            {
+                var keys = mif.ReadSectionKeys(itemName);
+                for (var k = 0; k < 16; k++)
+                {
+                    if (mif.KeyExists(itemName, $"{k}"))
+                    {
+                        var regBit = register & (1 << k);
+                        var valBit = value & (1 << k);
+                        if (regBit != valBit)
+                            Say = $"[{nodeAddr}] {itemName}.{k} {regBit >> k} -> {valBit >> k}\t{mif.ReadString(itemName, $"{k}", "")}";
+                    }
+                }
+            }
+        }
+
+        private void FlagIndication(byte nodeAddr, string itemName, ushort value)
+        {
+            if (mif.SectionExists(itemName))
+            {
+                var keys = mif.ReadSectionKeys(itemName);
+                for (var k = 0; k < 16; k++)
+                {
+                    if (mif.KeyExists(itemName, $"{k}"))
+                    {
+                        if ((value & (1 << k)) > 0)
+                            Say = $"[{nodeAddr}] {itemName}.{k} ? -> 1\t{mif.ReadString(itemName, $"{k}", "")}";
+                    }
                 }
             }
         }
