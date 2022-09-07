@@ -155,6 +155,8 @@ namespace UpnvcNodesEmulator
                                                     DictModbusItems.TryUpdate(key, value, register);
                                                     if (mif.KeyExists("Flags", itemName))
                                                         FlagIndication(nodeAddr, itemName, register, value);
+                                                    else if (mif.KeyExists("States", itemName))
+                                                        StateIndication(nodeAddr, itemName, value);
                                                     else
                                                         Say = $"[{nodeAddr}] {itemName} {register} -> {value}\t{mif.ReadString("Items",itemName, "")}";
                                                 }
@@ -165,6 +167,8 @@ namespace UpnvcNodesEmulator
                                                 {
                                                     if (mif.KeyExists("Flags", itemName))
                                                         FlagIndication(nodeAddr, itemName, value);
+                                                    else if (mif.KeyExists("States", itemName))
+                                                        StateIndication(nodeAddr, itemName, value);
                                                     else
                                                         Say = $"[{nodeAddr}] {itemName} ? -> {value}\t{mif.ReadString("Items", itemName, "")}";
                                                 }
@@ -179,7 +183,6 @@ namespace UpnvcNodesEmulator
                                         if (request.StartsWith(answer))
                                         {
                                             var regAddr = Swap(BitConverter.ToUInt16(msgSend, 8));
-                                            //var desc = new Tuple<string, string>("", "");
                                             var regCount = Swap(BitConverter.ToUInt16(msgSend, 10));
                                             var n = 13;
                                             for (var i = 0; i < regCount; i++)
@@ -212,11 +215,19 @@ namespace UpnvcNodesEmulator
             }
         }
 
+        private void StateIndication(byte nodeAddr, string itemName, ushort value)
+        {
+            if (mif.SectionExists(itemName))
+            {
+                if (mif.KeyExists(itemName, $"{value}"))
+                    Say = $"[{nodeAddr}] {itemName}.{value} ? ->\t{mif.ReadString(itemName, $"{value}", "")}";
+            }
+        }
+
         private void FlagIndication(byte nodeAddr, string itemName, ushort register, ushort value)
         {
             if (mif.SectionExists(itemName))
             {
-                var keys = mif.ReadSectionKeys(itemName);
                 for (var k = 0; k < 16; k++)
                 {
                     if (mif.KeyExists(itemName, $"{k}"))
@@ -234,7 +245,6 @@ namespace UpnvcNodesEmulator
         {
             if (mif.SectionExists(itemName))
             {
-                var keys = mif.ReadSectionKeys(itemName);
                 for (var k = 0; k < 16; k++)
                 {
                     if (mif.KeyExists(itemName, $"{k}"))

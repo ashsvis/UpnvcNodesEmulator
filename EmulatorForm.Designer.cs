@@ -45,7 +45,7 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(676, 557);
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(767, 557);
             this.tableLayoutPanel1.TabIndex = 3;
             // 
             // lbMessages
@@ -57,14 +57,14 @@
             this.lbMessages.ItemHeight = 17;
             this.lbMessages.Location = new System.Drawing.Point(3, 3);
             this.lbMessages.Name = "lbMessages";
-            this.lbMessages.Size = new System.Drawing.Size(670, 548);
+            this.lbMessages.Size = new System.Drawing.Size(761, 548);
             this.lbMessages.TabIndex = 0;
             // 
             // EmulatorForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(676, 557);
+            this.ClientSize = new System.Drawing.Size(767, 557);
             this.Controls.Add(this.tableLayoutPanel1);
             this.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
