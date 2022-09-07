@@ -54,6 +54,7 @@
     </Compile>
     <Compile Include="EnumTypeConverter.cs" />
     <Compile Include="FilterablePropertyBase.cs" />
+    <Compile Include="MemIniFile.cs" />
     <Compile Include="ModbusAnalogInput.cs" />
     <Compile Include="ModbusFetchError.cs" />
     <Compile Include="ModbusHoldingRegister.cs" />
@@ -77,6 +78,7 @@
       <DesignTime>True</DesignTime>
     </Compile>
     <None Include="app.config" />
+    <None Include="Descriptors.ini" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

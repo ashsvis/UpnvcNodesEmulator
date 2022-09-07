@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -14,12 +15,20 @@ namespace UpnvcNodesEmulator
         const int socketTimeOut = 3000;
         private readonly BackgroundWorker _worker;
 
-        private static readonly ConcurrentDictionary<string, ModbusItem> DictModbusItems =
-            new ConcurrentDictionary<string, ModbusItem>();
+        private static readonly ConcurrentDictionary<string, ushort> DictModbusItems =
+            new ConcurrentDictionary<string, ushort>();
+        private static readonly ConcurrentDictionary<int, Tuple<string, string>> Descriptors =
+            new ConcurrentDictionary<int, Tuple<string, string>>();
 
         public EmulatorForm()
         {
             InitializeComponent();
+
+            var mif = new MemIniFile("");
+            mif.FromString(Properties.Resources.Descriptors);
+            var items = mif.ReadSectionKeys("Items");
+            for (var i = 0; i < items.Length; i++)
+                Descriptors.TryAdd(i, new Tuple<string, string>(items[i], mif.ReadString("Items", items[i], "")));
             _worker = new BackgroundWorker {WorkerSupportsCancellation = true};
             _worker.DoWork += (o, args) =>
             {
@@ -103,15 +112,15 @@ namespace UpnvcNodesEmulator
                     {
                         sock.Connect(remoteEp);
                         sock.SendTimeout = socketTimeOut;
-                        var msg = new byte[count];
-                        Array.Copy(bytes, msg, count);
+                        var msgSend = new byte[count];
+                        Array.Copy(bytes, msgSend, count);
                         // msg: [0][1][2][3][4][5] - заголовок: [4]*256+[5]=длина блока
                         // [6] - адрес устройства;
                         // [7] - код функции;
                         // [8][9] - начальный адрес регистров Modbus устройства;
                         // [10][11] - количество регистров.
-                        var startAddr = Swap(BitConverter.ToUInt16(msg, 8));
-                        sock.Send(msg);
+                        var startAddr = Swap(BitConverter.ToUInt16(msgSend, 8));
+                        sock.Send(msgSend);
                         var receivedBytes = new byte[1024];
                         sock.ReceiveTimeout = socketTimeOut;
                         var numBytes = sock.Receive(receivedBytes); //считали numBytes байт
@@ -123,9 +132,9 @@ namespace UpnvcNodesEmulator
                         if ((receivedBytes[4] * 256 + receivedBytes[5] == numBytes - 6) &&
                             receivedBytes[6] == nodeAddr && receivedBytes[7] == funcCode)
                         {
-                            msg = new byte[numBytes];
-                            Array.Copy(receivedBytes, msg, numBytes);
-                            stream.Write(msg, 0, msg.Length);
+                            var msgReceive = new byte[numBytes];
+                            Array.Copy(receivedBytes, msgReceive, numBytes);
+                            stream.Write(msgReceive, 0, msgReceive.Length);
                             ThreadPool.QueueUserWorkItem(arg =>
                             {
                                 try
@@ -137,15 +146,46 @@ namespace UpnvcNodesEmulator
                                         var n = 9;
                                         for (var i = 0; i < regcount; i++)
                                         {
-                                            //var raw = new byte[2];
-                                            //raw[0] = receivedBytes[n + 1];
-                                            //raw[1] = receivedBytes[n];
-                                            //var value = BitConverter.ToUInt16(raw, 0);
                                             var value = Swap(BitConverter.ToUInt16(receivedBytes, n));
-                                            Say = $"[{nodeAddr}] {startAddr + i}={value}";
+                                            var addr = startAddr + i;
+                                            var key = $"[{nodeAddr}][{addr}]";
+                                            var desc = new Tuple<string, string>("", "");
+                                            Descriptors.TryGetValue(addr, out desc);
+                                            if (DictModbusItems.TryGetValue(key, out ushort register))
+                                            {
+                                                if (value != register)
+                                                {
+                                                    DictModbusItems.TryUpdate(key, value, register);
+                                                    Say = $"[{nodeAddr}] {desc.Item1} {register} -> {value}\t{desc.Item2}";
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (DictModbusItems.TryAdd(key, value))
+                                                    Say = $"[{nodeAddr}] {desc.Item1}    -> {value}\t{desc.Item2}";
+                                            }
                                             n += 2;
                                         }
-
+                                    }
+                                    else if (funcCode == 16)
+                                    {
+                                        var request = string.Join(",", msgSend.Skip(6));
+                                        var answer = string.Join(",", msgReceive.Skip(6));
+                                        if (request.StartsWith(answer))
+                                        {
+                                            var regAddr = Swap(BitConverter.ToUInt16(msgSend, 8));
+                                            var desc = new Tuple<string, string>("", "");
+                                            var regCount = Swap(BitConverter.ToUInt16(msgSend, 10));
+                                            var n = 13;
+                                            for (var i = 0; i < regCount; i++)
+                                            {
+                                                var value = Swap(BitConverter.ToUInt16(msgSend, n));
+                                                var addr = regAddr + i;
+                                                Descriptors.TryGetValue(addr, out desc);
+                                                Say = $"[{nodeAddr}] {desc.Item1} <- {value}\t{desc.Item2}";
+                                                n += 2;
+                                            }
+                                        }
                                     }
                                 }
                                 catch (Exception ex)
