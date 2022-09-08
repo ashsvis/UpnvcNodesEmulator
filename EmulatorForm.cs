@@ -194,7 +194,10 @@ namespace UpnvcNodesEmulator
                                                 var value = Swap(BitConverter.ToUInt16(msgSend, n));
                                                 var addr = regAddr + i;
                                                 var itemName = items[addr];
-                                                Say = $"[{nodeAddr}] {itemName}\t <- {value}\t{mif.ReadString("Items", itemName, "")}";
+                                                if (mif.KeyExists("States", itemName))
+                                                    CommandIndication(nodeAddr, itemName, value);
+                                                else
+                                                    Say = $"[{nodeAddr}] {itemName}\t<- {value}\t{mif.ReadString("Items", itemName, "")}";
                                                 n += 2;
                                             }
                                         }
@@ -224,7 +227,16 @@ namespace UpnvcNodesEmulator
             if (mif.SectionExists(itemName))
             {
                 if (mif.KeyExists(itemName, $"{value}"))
-                    Say = $"[{nodeAddr}] {itemName}.{value}\t ->\t{mif.ReadString(itemName, $"{value}", "")}";
+                    Say = $"[{nodeAddr}] {itemName}.{value}\t->\t{mif.ReadString(itemName, $"{value}", "")}";
+            }
+        }
+
+        private void CommandIndication(byte nodeAddr, string itemName, ushort value)
+        {
+            if (mif.SectionExists(itemName))
+            {
+                if (mif.KeyExists(itemName, $"{value}"))
+                    Say = $"[{nodeAddr}] {itemName}.{value}\t<-\t{mif.ReadString(itemName, $"{value}", "")}";
             }
         }
 
@@ -261,7 +273,7 @@ namespace UpnvcNodesEmulator
                     if (mif.KeyExists(itemName, $"{k}"))
                     {
                         if ((value & (1 << k)) > 0)
-                            Say = $"[{nodeAddr}] {itemName}.{k}\t -> 1\t{mif.ReadString(itemName, $"{k}", "")}";
+                            Say = $"[{nodeAddr}] {itemName}.{k}\t-> 1\t{mif.ReadString(itemName, $"{k}", "")}";
                     }
                 }
             }
