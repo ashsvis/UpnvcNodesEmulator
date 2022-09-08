@@ -157,8 +157,12 @@ namespace UpnvcNodesEmulator
                                                         FlagIndication(nodeAddr, itemName, register, value);
                                                     else if (mif.KeyExists("States", itemName))
                                                         StateIndication(nodeAddr, itemName, value);
+                                                    else if (mif.KeyExists("Analogs", itemName))
+                                                    {
+
+                                                    }
                                                     else
-                                                        Say = $"[{nodeAddr}] {itemName} {register} -> {value}\t{mif.ReadString("Items",itemName, "")}";
+                                                        Say = $"[{nodeAddr}] {itemName}\t{register} -> {value}\t{mif.ReadString("Items",itemName, "")}";
                                                 }
                                             }
                                             else
@@ -170,7 +174,7 @@ namespace UpnvcNodesEmulator
                                                     else if (mif.KeyExists("States", itemName))
                                                         StateIndication(nodeAddr, itemName, value);
                                                     else
-                                                        Say = $"[{nodeAddr}] {itemName} ? -> {value}\t{mif.ReadString("Items", itemName, "")}";
+                                                        Say = $"[{nodeAddr}] {itemName}\t -> {value}\t{mif.ReadString("Items", itemName, "")}";
                                                 }
                                             }
                                             n += 2;
@@ -190,7 +194,7 @@ namespace UpnvcNodesEmulator
                                                 var value = Swap(BitConverter.ToUInt16(msgSend, n));
                                                 var addr = regAddr + i;
                                                 var itemName = items[addr];
-                                                Say = $"[{nodeAddr}] {itemName} <- {value}\t{mif.ReadString("Items", itemName, "")}";
+                                                Say = $"[{nodeAddr}] {itemName}\t <- {value}\t{mif.ReadString("Items", itemName, "")}";
                                                 n += 2;
                                             }
                                         }
@@ -220,7 +224,7 @@ namespace UpnvcNodesEmulator
             if (mif.SectionExists(itemName))
             {
                 if (mif.KeyExists(itemName, $"{value}"))
-                    Say = $"[{nodeAddr}] {itemName}.{value} ? ->\t{mif.ReadString(itemName, $"{value}", "")}";
+                    Say = $"[{nodeAddr}] {itemName}.{value}\t ->\t{mif.ReadString(itemName, $"{value}", "")}";
             }
         }
 
@@ -235,8 +239,15 @@ namespace UpnvcNodesEmulator
                         var regBit = register & (1 << k);
                         var valBit = value & (1 << k);
                         if (regBit != valBit)
-                            Say = $"[{nodeAddr}] {itemName}.{k} {regBit >> k} -> {valBit >> k}\t{mif.ReadString(itemName, $"{k}", "")}";
+                        {
+                            if (itemName == "HRLASTERR" && valBit > 0 || itemName != "HRLASTERR")
+                                Say = $"[{nodeAddr}] {itemName}.{k}\t{regBit >> k} -> {valBit >> k}\t{mif.ReadString(itemName, $"{k}", "")}";
+                        }
                     }
+                }
+                if (itemName == "HRSTOPCNT" && (register & 0xff) != (value & 0xff))
+                {
+                    Say = $"[{nodeAddr}] {itemName}.0-7\t{register & 0xff} -> {value & 0xff}\t{mif.ReadString("Flags", itemName, "")}";
                 }
             }
         }
@@ -250,7 +261,7 @@ namespace UpnvcNodesEmulator
                     if (mif.KeyExists(itemName, $"{k}"))
                     {
                         if ((value & (1 << k)) > 0)
-                            Say = $"[{nodeAddr}] {itemName}.{k} ? -> 1\t{mif.ReadString(itemName, $"{k}", "")}";
+                            Say = $"[{nodeAddr}] {itemName}.{k}\t -> 1\t{mif.ReadString(itemName, $"{k}", "")}";
                     }
                 }
             }
